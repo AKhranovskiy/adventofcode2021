@@ -26,16 +26,16 @@ fn power_consumption(data: &[usize]) -> Option<usize> {
         mask >>= 1;
     }
 
-    let data_mask = (most_significant_bit(&data) << 1) - 1;
+    let data_mask = (most_significant_bit(data) << 1) - 1;
     let epsilon = (!gamma).bitand(data_mask);
     Some(gamma * epsilon)
 }
 
 fn life_support_rating(data: &[usize]) -> Option<usize> {
     OxygenGeneratorRating
-        .calculate(&data)
-        .zip(CO2ScrubberRating.calculate(&data))
-        .and_then(|(oxy, co2)| Some(oxy * co2))
+        .calculate(data)
+        .zip(CO2ScrubberRating.calculate(data))
+        .map(|(oxy, co2)| oxy * co2)
 }
 
 struct OxygenGeneratorRating;
@@ -56,7 +56,7 @@ trait LifeSupportRating {
     fn important_bit(&self) -> ImportantBit;
 
     fn calculate(&self, data: &[usize]) -> Option<usize> {
-        self._calculate_impl(&data, most_significant_bit(&data))
+        self._calculate_impl(data, most_significant_bit(data))
     }
 
     fn _calculate_impl(&self, data: &[usize], mask: usize) -> Option<usize> {
@@ -75,22 +75,21 @@ trait LifeSupportRating {
         let (ones, zeros): (Vec<usize>, Vec<usize>) =
             data.iter().partition(|&v| v.bitand(mask) == mask);
 
-        let data = if ones.len() > zeros.len() {
-            match self.selector() {
+        let data = match ones.len().cmp(&zeros.len()) {
+            std::cmp::Ordering::Greater => match self.selector() {
                 Selector::Fewer => zeros,
                 Selector::More => ones,
-            }
-        } else if ones.len() < zeros.len() {
-            match self.selector() {
+            },
+            std::cmp::Ordering::Less => match self.selector() {
                 Selector::Fewer => ones,
                 Selector::More => zeros,
-            }
-        } else {
-            match self.important_bit() {
+            },
+            std::cmp::Ordering::Equal => match self.important_bit() {
                 ImportantBit::Zero => zeros,
                 ImportantBit::One => ones,
-            }
+            },
         };
+
         self._calculate_impl(&data, mask.shr(1))
     }
 }
@@ -142,16 +141,16 @@ fn test_most_significant_bit() {
 
 #[test]
 fn test_calculate_rating() {
-    assert_eq!(Some(23), OxygenGeneratorRating.calculate(&TEST_DATA));
-    assert_eq!(Some(10), CO2ScrubberRating.calculate(&TEST_DATA));
+    assert_eq!(Some(23), OxygenGeneratorRating.calculate(TEST_DATA));
+    assert_eq!(Some(10), CO2ScrubberRating.calculate(TEST_DATA));
 }
 
 #[test]
 fn test_power_consumption() {
-    assert_eq!(Some(198), power_consumption(&TEST_DATA));
+    assert_eq!(Some(198), power_consumption(TEST_DATA));
 }
 
 #[test]
 fn test_life_support_rating() {
-    assert_eq!(Some(230), life_support_rating(&TEST_DATA));
+    assert_eq!(Some(230), life_support_rating(TEST_DATA));
 }
